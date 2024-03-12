@@ -1,0 +1,164 @@
+Program.Sub.ScreenSU.Start
+Gui.Form..Create
+Gui.Form..Caption("Delete Customer/Part")
+Gui.Form..Size(8295,11385)
+Gui.Form..MinX(0)
+Gui.Form..MinY(0)
+Gui.Form..Position(0,0)
+Gui.Form..BackColor(-2147483633)
+Gui.Form..MousePointer(0)
+Gui.Form..Event(UnLoad,Form_UnLoad)
+Gui.Form.GsGrid.Create(GsGridControl)
+Gui.Form.GsGrid.Size(8175,10620)
+Gui.Form.GsGrid.Position(0,0)
+Gui.Form.cmdDelete.Create(Button)
+Gui.Form.cmdDelete.Size(2700,375)
+Gui.Form.cmdDelete.Position(5055,10650)
+Gui.Form.cmdDelete.Caption("Delete Selected Contract Prices")
+Gui.Form.cmdDelete.Event(Click,cmdDelete_Click)
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+'8/3/2017 Dawn Hughes. This project will run from a custom menu item and will allow the user to select the Customer and Part number that needs to have the contract price deleted.
+V.Local.sIcon.Declare(String)
+F.ODBC.Connection!con.OpenConnection(v.Ambient.PDSN,v.Ambient.PUser,v.Ambient.PPass)
+'icon stuff
+F.Intrinsic.String.Build("{0}\GAB\GAS\gss2.ico",V.Caller.PluginsDir,v.Local.sIcon)
+Gui.Form..Icon(V.Local.sIcon)
+GUI.Form.GsGrid.Anchor(15)
+GUI.Form.cmdDelete.Anchor(10)
+
+F.Intrinsic.Control.CallSub(Grid)
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4681_Delete_ContractPrice.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(form_unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.Main.End
+
+Program.Sub.Grid.Start
+F.Intrinsic.Control.SetErrorHandler("Grid_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+'select the data
+F.Data.DataTable.CreateFromSQL("D", "con", "Select RTrim(Customer) As Customer, '' As Name_Customer, rTrim(Part) As PART,  Date_Effective From OE_C_PART_PRICE", TRUE)
+F.Data.DataTable.AddColumn("D", "SELECT", "Boolean", False)
+F.Data.Dictionary.CreateFromSQL("dict", "con", "Select RTrim(Customer) As Customer, Name_Customer From V_Customer_Master")
+F.Data.Dictionary.SetDefaultReturn("dict", "'")
+F.Data.DataTable.FillFromDictionary("D", "dict", "Customer", "Name_Customer")
+F.Data.Dictionary.Close("dict")
+Gui.Form.GsGrid.AddGridViewFromDataTable("GRID","D")
+GUI.Form.GsGrid.mainview("GRID")
+
+'make pretty
+Gui.Form.GsGrid.SetColumnProperty("GRID", "Name_Customer", "Caption", "NAME")
+'center header
+Gui.Form.GsGrid.SetColumnProperty("GRID", "Customer", "HeaderHAlignment", "Center")
+Gui.Form.GsGrid.SetColumnProperty("GRID", "Name_Customer", "HeaderHAlignment", "Center")
+Gui.Form.GsGrid.SetColumnProperty("GRID", "Part", "HeaderHAlignment", "Center")
+Gui.Form.GsGrid.SetColumnProperty("GRID", "SELECT", "HeaderHAlignment", "Center")
+'center cells
+Gui.Form.GsGrid.SetColumnProperty("GRID", "Customer", "CellHAlignment", "Center")
+Gui.Form.GsGrid.SetColumnProperty("GRID", "Name_Customer", "CellHAlignment", "Center")
+Gui.Form.GsGrid.SetColumnProperty("GRID", "Part", "CellHAlignment", "Center")
+Gui.Form.GsGrid.SetColumnProperty("GRID", "SELECT", "CellHAlignment", "Center")
+'widths
+Gui.Form.GsGrid.SetColumnProperty("GRID", "Customer", "MinWidth", "10")
+Gui.Form.GsGrid.SetColumnProperty("GRID", "Name_Customer", "MinWidth", "125")
+Gui.Form.GsGrid.SetColumnProperty("GRID", "Part", "MinWidth", "100")
+Gui.Form.GsGrid.SetColumnProperty("GRID", "SELECT", "MinWidth", "10")
+'allow edits
+Gui.Form.GsGrid.SetColumnProperty("GRID", "Customer", "AllowEdit ", "FALSE")
+Gui.Form.GsGrid.SetColumnProperty("GRID", "Name_Customer", "AllowEdit ", "FALSE")
+Gui.Form.GsGrid.SetColumnProperty("GRID", "Part", "AllowEdit ", "FALSE")
+Gui.Form.GsGrid.SetColumnProperty("GRID", "SELECT", "AllowEdit ", "TRUE")
+Gui.Form.GsGrid.SetColumnProperty("GRID", "SELECT", "ReadOnly", "FALSE")
+'date
+Gui.Form.GsGrid.SetColumnProperty("GRID", "Date_Effective", "displaycustomdatetime", "d")
+GUI.Form..Show
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("Grid_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4681_Delete_ContractPrice.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(form_unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.Grid.End
+
+Program.Sub.cmdDelete_Click.Start
+F.Intrinsic.Control.SetErrorHandler("cmdDelete_Click_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+'delete the selected customer/part contract prices from the database
+V.Local.iC.Declare(Long)
+V.Local.iUbound.Declare(Long)
+V.Local..BulkDeclareString(ssql, sRet)
+
+F.Intrinsic.UI.Msgbox("Delete the Selected Customer/Part Contract Prices?", "Confirm Delete", 3, V.Local.sRet)
+Function.Intrinsic.Control.If(V.Local.sRet, =, 6)
+	F.Data.DataView.Create("D", "D_V", 22, "SELECT = 'TRUE' ", "" )
+	V.Local.iUbound.Set(V.DataView.D!D_V.RowCount)
+	F.Intrinsic.Math.Add(V.Local.iUbound, -1, V.Local.iUbound)
+	F.Intrinsic.Control.For(V.Local.iC, 0, V.Local.iUbound, 1)
+		F.Intrinsic.String.Build("Delete From OE_C_PART_PRICE Where Customer = '{0}' And Part = '{1}'", V.DataView.D!D_V(V.Local.iC).Customer!FieldValTrim,  V.DataView.D!D_V(V.Local.iC).Part!FieldValTrim, V.Local.ssql)
+		F.ODBC.Connection!con.Execute(V.Local.ssql)
+		F.Intrinsic.String.Build("Delete From OE_K_PRICE Where Customer = '{0}' And Part = '{1}'", V.DataView.D!D_V(V.Local.iC).Customer!FieldValTrim,  V.DataView.D!D_V(V.Local.iC).Part!FieldValTrim, V.Local.ssql)
+		F.ODBC.Connection!con.Execute(V.Local.ssql)
+		F.Intrinsic.String.Build("Delete From OE_K_P_BREAK Where Customer = '{0}' And Part = '{1}'", V.DataView.D!D_V(V.Local.iC).Customer!FieldValTrim,  V.DataView.D!D_V(V.Local.iC).Part!FieldValTrim, V.Local.ssql)
+		F.ODBC.Connection!con.Execute(V.Local.ssql)
+	F.Intrinsic.Control.Next(V.Local.iC)
+	
+	
+Function.Intrinsic.Control.Else
+
+	F.Intrinsic.Control.ExitSub
+Function.Intrinsic.Control.EndIf
+F.Data.DataTable.Close("D")
+Function.Intrinsic.Control.CallSub(grid)
+	
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("cmdDelete_Click_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4681_Delete_ContractPrice.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(form_unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.cmdDelete_Click.End
+
+Program.Sub.Form_UnLoad.Start
+F.Intrinsic.Control.SetErrorHandler("Form_UnLoad_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+GUI.Form..Visible(False)
+F.ODBC.Connection!con.Close 
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("Form_UnLoad_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4681_Delete_ContractPrice.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.End
+
+Function.Intrinsic.Control.EndIf
+Program.Sub.Form_UnLoad.End
+
+Program.Sub.Comments.Start
+${$0$}$$}$$}$12:00:00 AM$}$False
+${$3$}$0$}$$}$-1$}$-1$}$$}$1/1/1900$}$Original customer was SMS Millcraft.
+
+This is a re-write of the original script due to many inconsistencies with the original.
+Program.Sub.Comments.End
